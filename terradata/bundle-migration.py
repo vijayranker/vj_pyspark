@@ -1,5 +1,7 @@
 from pyspark.sql.functions import *
 from pyspark.sql import SparkSession
+import pyspark.sql.functions as F
+import math
 
 # Build a spark session
 spark = SparkSession.builder.master("local").appName("ecap1").getOrCreate()
@@ -30,3 +32,16 @@ pul_df.show(10)
 final_df = ecapdf.join(pul_df, ecapdf.bid == pul_df.bid)
 
 final_df.show(10)
+
+
+sum_pul = final_df.agg(F.sum("sum(pul)")).collect()[0][0]
+
+upul = math.sqrt(sum_pul)
+
+print('sum pul: {}'.format(sum_pul))
+
+print('upul: {}'.format(upul))
+
+upul_df = final_df.withColumn("rc", final_df['sum(pul)'] / upul)
+
+upul_df.show(10)
