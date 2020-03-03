@@ -15,9 +15,8 @@ corr_df = spark.read.csv(
 
 combinations = ecapdf.alias("left").crossJoin(ecapdf.alias("right"))
 
-
 full_data_frame = combinations.join(corr_df, [combinations['left.cat'] == corr_df.sector_id_i,
-                                             combinations['right.cat'] == corr_df.sector_id_j])
+                                              combinations['right.cat'] == corr_df.sector_id_j])
 
 pull_df = full_data_frame.withColumn("pul", when(
     (full_data_frame['left.bid'] == full_data_frame['right.bid']) & (full_data_frame['left.nt'] == 1),
@@ -33,6 +32,7 @@ final_df = ecapdf.join(pul_df, ecapdf.bid == pul_df.bid)
 
 final_df.show(10)
 
+self_final_df = final_df.alias("left").join(final_df.alias("right"))
 
 sum_pul = final_df.agg(F.sum("sum(pul)")).collect()[0][0]
 
@@ -42,6 +42,18 @@ print('sum pul: {}'.format(sum_pul))
 
 print('upul: {}'.format(upul))
 
-upul_df = final_df.withColumn("rc", final_df['sum(pul)'] / upul)
+self_final_df = final_df.alias("left").join(final_df.alias("right"))
+
+self_final_df_with_corr = self_final_df.join(corr_df, [self_final_df['left.cat'] == corr_df.sector_id_i,
+                                                       self_final_df['right.cat'] == corr_df.sector_id_j])
+
+self_final_df_with_corr.show(10)
+
+# Since i don't have the value for rc_term setting it as 0
+upul_df = self_final_df_with_corr.withColumn("rc", when(self_final_df_with_corr['left.nt'] == 1,
+                                                        ((self_final_df_with_corr['left.ul'] * self_final_df_with_corr[
+                                                            'left.ul'] * 1) + 0) / upul)
+                                             .otherwise(((self_final_df_with_corr['left.ul'] * self_final_df_with_corr[
+    'left.ul'] * self_final_df_with_corr['corr']) + 0) / upul))
 
 upul_df.show(10)
